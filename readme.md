@@ -1,7 +1,5 @@
 # Log analyzer
 
----
-
 - [x] Parse data from `.log` file using regex
 - [x] Save data in database
   - [x] Ignore duplicate
