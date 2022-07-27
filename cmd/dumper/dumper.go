@@ -1,76 +1,81 @@
 package main
 
 import (
-    "bufio"
-    "log"
-    "log-analyzer/cmd/dumper/parser"
-    "log-analyzer/datastore"
-    "os"
-    "sync"
+	"bufio"
+	"log"
+	"log-analyzer/cmd/dumper/parser"
+	"log-analyzer/datastore"
+	"os"
+	"sync"
+	"time"
 )
 
 const maxChunkSize = 3000
 
 func main() {
-    log.Println("start")
+	for true {
+		log.Println("start")
 
-    db, err := datastore.NewDatastore()
-    if err != nil {
-        log.Fatalln(err)
-    }
+		db, err := datastore.NewDatastore()
+		if err != nil {
+			log.Fatalln(err)
+		}
 
-    file, err := os.Open("golang.log")
-    if err != nil {
-        log.Fatalln(err)
-    }
+		file, err := os.Open("golang.log")
+		if err != nil {
+			log.Fatalln(err)
+		}
 
-    scanner := bufio.NewScanner(file)
+		scanner := bufio.NewScanner(file)
 
-    var wg sync.WaitGroup
+		var wg sync.WaitGroup
 
-    var chunks []string
+		var chunks []string
 
-    for scanner.Scan() {
-        chunks = append(chunks, scanner.Text())
+		for scanner.Scan() {
+			chunks = append(chunks, scanner.Text())
 
-        if len(chunks) < maxChunkSize {
-            continue
-        }
+			if len(chunks) < maxChunkSize {
+				continue
+			}
 
-        wg.Add(1)
-        go routine(chunks, &wg, db)
+			wg.Add(1)
+			go routine(chunks, &wg, db)
 
-        chunks = []string{}
-    }
+			chunks = []string{}
+		}
 
-    wg.Add(1)
-    go routine(chunks, &wg, db)
+		wg.Add(1)
+		go routine(chunks, &wg, db)
 
-    wg.Wait()
-    log.Println("end")
+		wg.Wait()
+
+		log.Println("end")
+		time.Sleep(5 * time.Minute)
+	}
 }
 
 func routine(chunk []string, wg *sync.WaitGroup, db *datastore.Mysql) {
-    defer wg.Done()
-    var items []parser.ResolvedLine
+	defer wg.Done()
+	var items []parser.ResolvedLine
 
-    for _, line := range chunk {
+	for _, line := range chunk {
 
-        item, err := parser.Parse(line)
-        if err != nil {
-            log.Println(err)
-            continue
-        }
+		item, err := parser.Parse(line)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 
-        if item.Request != "GET" && item.Request != "POST" {
-            continue
-        }
+		if item.Request != "GET" && item.Request != "POST" {
+			continue
+		}
 
-        items = append(items, item)
-    }
+		items = append(items, item)
+	}
 
-    err := db.SaveLogs(items)
-    if err != nil {
-        log.Fatalln(err)
-    }
+	err := db.SaveLogs(items)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
